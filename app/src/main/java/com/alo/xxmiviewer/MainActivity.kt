@@ -86,7 +86,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(dp(28), dp(28), dp(28), dp(28))
             addView(text("Abre el zip de un mod", 20f, cFg, bold = true).apply { gravity = Gravity.CENTER })
-            addView(text("Mods XXMI/3DMigoto (.ini + .buf + .dds) y modelos FBX con texturas PNG. Todo se lee en el dispositivo.", 14f, cMuted).apply {
+            addView(text("Mods XXMI/3DMigoto, modelos FBX y OBJ con sus texturas. Acepta zips dentro de zips. Todo se lee en el dispositivo.", 14f, cMuted).apply {
                 gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(16))
             })
             addView(button("Abrir zip", primary = true) { pickZip() })
@@ -261,9 +261,9 @@ class MainActivity : Activity() {
                 val f = File(cacheDir, "mod_${System.currentTimeMillis()}.zip")
                 val ins = contentResolver.openInputStream(uri) ?: throw IllegalStateException("No se pudo abrir el archivo")
                 ins.use { i -> f.outputStream().use { o -> i.copyTo(o, 1 shl 16) } }
-                cacheDir.listFiles()?.filter { it.name.startsWith("mod_") && it != f }?.forEach { it.delete() }
-                val ar = Archive(f)
-                // text != null: mod 3DMigoto/XXMI (.ini); text == null: modelo FBX
+                cacheDir.listFiles()?.filter { (it.name.startsWith("mod_") || it.name.startsWith("nested_")) && it != f }?.forEach { it.delete() }
+                val ar = Archive(f, cacheDir)
+                // text != null: mod 3DMigoto/XXMI (.ini); text == null: modelo FBX u OBJ
                 val cands = ArrayList<Pair<String, String?>>()
                 for (p in ar.paths) {
                     if (p.endsWith(".ini", true) && !p.endsWith("desktop.ini", true)) {
@@ -271,8 +271,8 @@ class MainActivity : Activity() {
                         if (t.contains("drawindexed", true)) cands.add(p to t)
                     }
                 }
-                for (p in ar.paths) if (p.endsWith(".fbx", true)) cands.add(p to null)
-                if (cands.isEmpty()) throw IllegalStateException("No encontré un .ini de XXMI ni un .fbx dentro del zip.")
+                for (p in ar.paths) if (p.endsWith(".fbx", true) || p.endsWith(".obj", true)) cands.add(p to null)
+                if (cands.isEmpty()) throw IllegalStateException("No encontré un .ini de XXMI, un .fbx ni un .obj dentro del zip.")
                 if (cands.size == 1) startBuild(ar, cands[0].first, cands[0].second, token)
                 else ui.post {
                     val names = cands.map { it.first }.toTypedArray()
@@ -293,6 +293,8 @@ class MainActivity : Activity() {
                 setStatus("Leyendo geometría…")
                 val cpu = if (text != null) {
                     ModelLoader.build(ar, Ini.parse(text, path)) { setStatus(it) }
+                } else if (path.endsWith(".obj", true)) {
+                    ObjLoader.build(ar, path) { setStatus(it) }
                 } else {
                     FbxLoader.build(ar, path) { setStatus(it) }
                 }
