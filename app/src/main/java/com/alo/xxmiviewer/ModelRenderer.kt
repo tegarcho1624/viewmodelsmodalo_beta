@@ -221,11 +221,16 @@ class ModelRenderer(
     // ---------- Texturas ----------
 
     private fun texFor(m: CpuModel, sec: CpuSection, v: Map<String, Double>): GlTex? {
-        var r: String? = null
-        for (a in sec.diff) if (Ini.evalConds(a.conds, v)) r = a.res
-        if (r == null) return null
-        val file = m.ini.res[r]?.props?.get("filename") ?: return null
-        val path = m.archive.resolve(m.ini.dir, file) ?: return null
+        val path: String
+        if (sec.fixedTex != null) {
+            path = sec.fixedTex
+        } else {
+            var r: String? = null
+            for (a in sec.diff) if (Ini.evalConds(a.conds, v)) r = a.res
+            if (r == null) return null
+            val file = m.ini.res[r]?.props?.get("filename") ?: return null
+            path = m.archive.resolve(m.ini.dir, file) ?: return null
+        }
         var t = textures[path]
         if (t == null) {
             t = GlTex()
@@ -238,7 +243,7 @@ class ModelRenderer(
     private fun startDecode(m: CpuModel, path: String, t: GlTex) {
         Thread {
             try {
-                val img = Dds.decode(m.archive.read(path), 2048)
+                val img = Images.load(m.archive.read(path), path, 2048)
                 runGl(Runnable {
                     if (cpuModel === m) {
                         uploadTex(t, img)

@@ -14,6 +14,7 @@ class CpuSection(
     val indices: IntArray,
     val draws: List<CpuDraw>,
     val diff: List<DiffAssign>,
+    val fixedTex: String? = null,   // ruta de textura fija dentro del zip (FBX); null = la decide el .ini
 )
 
 class CpuModel(

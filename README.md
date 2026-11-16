@@ -1,7 +1,8 @@
 # Visor XXMI (Android, Kotlin)
 
-Visor 3D de mods XXMI/3DMigoto (Zenless Zone Zero). Abre el zip del mod y muestra el modelo con texturas,
-variantes del .ini y partes. No necesita XXMI ni el juego.
+Visor 3D. Abre un zip con:
+- un mod XXMI/3DMigoto (.ini + .buf + .ib + .dds): modelo con texturas, variantes del .ini y partes.
+- un modelo FBX binario con texturas PNG/JPG/DDS: una parte por material (sin huesos ni blendshapes).
 
 ## Compilar el APK con GitHub (sin PC)
 1. Sube esta carpeta completa a un repositorio de GitHub con mgit (el archivo `.github/workflows/build.yml` debe ir incluido).
