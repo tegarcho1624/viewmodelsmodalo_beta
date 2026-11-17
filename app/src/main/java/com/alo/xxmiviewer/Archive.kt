@@ -36,7 +36,7 @@ class Archive(file: File, private val tmpDir: File) {
             pathByLower[l] = p
             paths.add(p)
             byBase.putIfAbsent(l.substringAfterLast('/'), p)
-            if (l.endsWith(".zip")) nested.add(p to e.name)
+            if (l.endsWith(".zip") || l.endsWith(".usdz")) nested.add(p to e.name)
         }
         if (depth >= 4) return
         for ((p, raw) in nested) {
@@ -79,6 +79,18 @@ class Archive(file: File, private val tmpDir: File) {
         val l = it.lowercase()
         l.endsWith(".png") || l.endsWith(".jpg") || l.endsWith(".jpeg") || l.endsWith(".dds") ||
             l.endsWith(".bmp") || l.endsWith(".webp")
+    }
+
+    /** Mejor imagen del archivo para usar de textura; [hint] es un nombre de material o de objeto. */
+    fun bestImage(hint: String): String? {
+        val imgs = images()
+        if (imgs.isEmpty()) return null
+        if (imgs.size == 1) return imgs[0]
+        val h = hint.lowercase()
+        if (h.isNotEmpty()) imgs.firstOrNull { it.lowercase().contains(h) }?.let { return it }
+        val keys = listOf("basecolor", "base_color", "albedo", "diffuse", "color")
+        imgs.firstOrNull { p -> keys.any { p.lowercase().contains(it) } }?.let { return it }
+        return imgs[0]
     }
 
     fun close() {

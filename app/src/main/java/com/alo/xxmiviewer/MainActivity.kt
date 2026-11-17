@@ -86,7 +86,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(dp(28), dp(28), dp(28), dp(28))
             addView(text("Abre el zip de un mod", 20f, cFg, bold = true).apply { gravity = Gravity.CENTER })
-            addView(text("Mods XXMI/3DMigoto, modelos FBX y OBJ con sus texturas. Acepta zips dentro de zips. Todo se lee en el dispositivo.", 14f, cMuted).apply {
+            addView(text("Mods XXMI/3DMigoto y modelos FBX, OBJ y USDZ con sus texturas. Acepta zips dentro de zips. Todo se lee en el dispositivo.", 14f, cMuted).apply {
                 gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(16))
             })
             addView(button("Abrir zip", primary = true) { pickZip() })
@@ -227,7 +227,7 @@ class MainActivity : Activity() {
         val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/x-zip-compressed", "model/vnd.usdz+zip", "application/octet-stream"))
         }
         startActivityForResult(i, 1)
     }
@@ -263,7 +263,7 @@ class MainActivity : Activity() {
                 ins.use { i -> f.outputStream().use { o -> i.copyTo(o, 1 shl 16) } }
                 cacheDir.listFiles()?.filter { (it.name.startsWith("mod_") || it.name.startsWith("nested_")) && it != f }?.forEach { it.delete() }
                 val ar = Archive(f, cacheDir)
-                // text != null: mod 3DMigoto/XXMI (.ini); text == null: modelo FBX u OBJ
+                // text != null: mod 3DMigoto/XXMI (.ini); text == null: modelo FBX, OBJ o USD
                 val cands = ArrayList<Pair<String, String?>>()
                 for (p in ar.paths) {
                     if (p.endsWith(".ini", true) && !p.endsWith("desktop.ini", true)) {
@@ -271,8 +271,8 @@ class MainActivity : Activity() {
                         if (t.contains("drawindexed", true)) cands.add(p to t)
                     }
                 }
-                for (p in ar.paths) if (p.endsWith(".fbx", true) || p.endsWith(".obj", true)) cands.add(p to null)
-                if (cands.isEmpty()) throw IllegalStateException("No encontré un .ini de XXMI, un .fbx ni un .obj dentro del zip.")
+                for (p in ar.paths) if (p.endsWith(".fbx", true) || p.endsWith(".obj", true) || p.endsWith(".usdc", true) || p.endsWith(".usd", true)) cands.add(p to null)
+                if (cands.isEmpty()) throw IllegalStateException("No encontré un .ini de XXMI, ni un .fbx, .obj o .usdz dentro del zip.")
                 if (cands.size == 1) startBuild(ar, cands[0].first, cands[0].second, token)
                 else ui.post {
                     val names = cands.map { it.first }.toTypedArray()
@@ -295,6 +295,8 @@ class MainActivity : Activity() {
                     ModelLoader.build(ar, Ini.parse(text, path)) { setStatus(it) }
                 } else if (path.endsWith(".obj", true)) {
                     ObjLoader.build(ar, path) { setStatus(it) }
+                } else if (path.endsWith(".usdc", true) || path.endsWith(".usd", true)) {
+                    UsdLoader.build(ar, path) { setStatus(it) }
                 } else {
                     FbxLoader.build(ar, path) { setStatus(it) }
                 }

@@ -4,6 +4,7 @@ Visor 3D. Abre un zip con:
 - un mod XXMI/3DMigoto (.ini + .buf + .ib + .dds): modelo con texturas, variantes del .ini y partes.
 - un modelo FBX binario con texturas PNG/JPG/DDS: una parte por material (sin huesos ni blendshapes).
 - un modelo OBJ (con o sin .mtl): una parte por material o grupo. Si no hay .mtl usa la imagen del zip como textura.
+- un modelo USDZ / USDC binario (Apple, Sketchfab): una parte por malla y material, con su textura.
 
 Tambien abre zips dentro de zips (hasta 4 niveles).
 
