@@ -15,6 +15,7 @@ class CpuSection(
     val draws: List<CpuDraw>,
     val diff: List<DiffAssign>,
     val fixedTex: String? = null,   // ruta de textura fija dentro del zip (FBX); null = la decide el .ini
+    val alphaCut: Boolean = false,  // true: se descartan los pixeles transparentes de la textura (glTF MASK/BLEND)
 )
 
 class CpuModel(

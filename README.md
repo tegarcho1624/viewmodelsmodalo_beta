@@ -6,6 +6,7 @@ Visor 3D. Abre un zip con:
 - un modelo OBJ (con o sin .mtl): una parte por material o grupo. Si no hay .mtl usa la imagen del zip como textura.
 - un modelo USDZ / USDC binario (Apple, Sketchfab): una parte por malla y material, con su textura.
 - un archivo Blender (.blend, normal o comprimido con gzip, Blender 2.5 a 3.5): una parte por material, con la textura del nodo Image Texture. Ignora huesos, modificadores y shape keys. Si la imagen no esta empaquetada en el .blend, la busca en el zip por nombre (aunque cambien espacios por guiones bajos).
+- un modelo glTF 2.0 (.gltf con su .bin, o .glb), como los de Sketchfab: una parte por primitiva, con la jerarquia de nodos y los huesos en su pose de reposo. Respeta la transparencia de materiales MASK/BLEND (recorta los pixeles transparentes). No lee glTF comprimidos con Draco ni meshopt.
 
 Tambien abre zips dentro de zips (hasta 4 niveles).
 

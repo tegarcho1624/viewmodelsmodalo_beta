@@ -17,6 +17,7 @@ object Images {
         val opts = BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
+            inPremultiplied = false
         }
         val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
             ?: throw IllegalArgumentException("Imagen no soportada: ${path.substringAfterLast('/')}")

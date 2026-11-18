@@ -86,7 +86,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(dp(28), dp(28), dp(28), dp(28))
             addView(text("Abre el zip de un mod", 20f, cFg, bold = true).apply { gravity = Gravity.CENTER })
-            addView(text("Mods XXMI/3DMigoto y modelos FBX, OBJ, USDZ y Blender (.blend) con sus texturas. Acepta zips dentro de zips. Todo se lee en el dispositivo.", 14f, cMuted).apply {
+            addView(text("Mods XXMI/3DMigoto y modelos FBX, OBJ, USDZ, Blender (.blend) y glTF/GLB con sus texturas. Acepta zips dentro de zips. Todo se lee en el dispositivo.", 14f, cMuted).apply {
                 gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(16))
             })
             addView(button("Abrir zip", primary = true) { pickZip() })
@@ -263,7 +263,7 @@ class MainActivity : Activity() {
                 ins.use { i -> f.outputStream().use { o -> i.copyTo(o, 1 shl 16) } }
                 cacheDir.listFiles()?.filter { (it.name.startsWith("mod_") || it.name.startsWith("nested_")) && it != f }?.forEach { it.delete() }
                 val ar = Archive(f, cacheDir)
-                // text != null: mod 3DMigoto/XXMI (.ini); text == null: modelo FBX, OBJ, USD o Blender
+                // text != null: mod 3DMigoto/XXMI (.ini); text == null: modelo FBX, OBJ, USD, Blender o glTF
                 val cands = ArrayList<Pair<String, String?>>()
                 for (p in ar.paths) {
                     if (p.endsWith(".ini", true) && !p.endsWith("desktop.ini", true)) {
@@ -271,8 +271,8 @@ class MainActivity : Activity() {
                         if (t.contains("drawindexed", true)) cands.add(p to t)
                     }
                 }
-                for (p in ar.paths) if (p.endsWith(".fbx", true) || p.endsWith(".obj", true) || p.endsWith(".usdc", true) || p.endsWith(".usd", true) || p.endsWith(".blend", true)) cands.add(p to null)
-                if (cands.isEmpty()) throw IllegalStateException("No encontré un .ini de XXMI, ni un .fbx, .obj, .usdz o .blend dentro del zip.")
+                for (p in ar.paths) if (p.endsWith(".fbx", true) || p.endsWith(".obj", true) || p.endsWith(".usdc", true) || p.endsWith(".usd", true) || p.endsWith(".blend", true) || p.endsWith(".gltf", true) || p.endsWith(".glb", true)) cands.add(p to null)
+                if (cands.isEmpty()) throw IllegalStateException("No encontré un .ini de XXMI, ni un .fbx, .obj, .usdz, .blend o .gltf/.glb dentro del zip.")
                 if (cands.size == 1) startBuild(ar, cands[0].first, cands[0].second, token)
                 else ui.post {
                     val names = cands.map { it.first }.toTypedArray()
@@ -299,6 +299,8 @@ class MainActivity : Activity() {
                     UsdLoader.build(ar, path) { setStatus(it) }
                 } else if (path.endsWith(".blend", true)) {
                     BlendLoader.build(ar, path) { setStatus(it) }
+                } else if (path.endsWith(".gltf", true) || path.endsWith(".glb", true)) {
+                    GltfLoader.build(ar, path) { setStatus(it) }
                 } else {
                     FbxLoader.build(ar, path) { setStatus(it) }
                 }

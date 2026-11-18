@@ -51,6 +51,7 @@ class ModelRenderer(
     private var uHas = 0
     private var uSrgb = 0
     private var uTint = 0
+    private var uCut = 0
     private var width = 1
     private var height = 1
     private var lastTris = -1
@@ -114,6 +115,7 @@ class ModelRenderer(
         uHas = GLES30.glGetUniformLocation(prog, "uHas")
         uSrgb = GLES30.glGetUniformLocation(prog, "uSrgb")
         uTint = GLES30.glGetUniformLocation(prog, "uTint")
+        uCut = GLES30.glGetUniformLocation(prog, "uCut")
         val ext = GLES20.glGetString(GLES20.GL_EXTENSIONS) ?: ""
         aniso = ext.contains("GL_EXT_texture_filter_anisotropic")
         // El contexto pudo perderse (pausa/reanudar): se vuelve a subir el modelo
@@ -155,6 +157,7 @@ class ModelRenderer(
             if (t != null) GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t.id)
             GLES30.glUniform1i(uHas, if (t != null) 1 else 0)
             GLES30.glUniform1i(uSrgb, if (t != null && t.srgb) 1 else 0)
+            GLES30.glUniform1i(uCut, if (t != null && gs.section.alphaCut) 1 else 0)
             GLES30.glBindVertexArray(gs.vao)
             for (d in gs.section.draws) {
                 val idx = di++
@@ -345,6 +348,7 @@ uniform int uMode;
 uniform bool uHas;
 uniform bool uSrgb;
 uniform vec3 uTint;
+uniform bool uCut;
 void main() {
   vec3 n = normalize(vN);
   if (!gl_FrontFacing) n = -n;
@@ -352,10 +356,12 @@ void main() {
   float fill = max(dot(n, normalize(vec3(-0.7, 0.1, 0.45))), 0.0) * 0.35;
   float rim = pow(1.0 - max(n.z, 0.0), 3.0) * 0.18;
   float light = 0.38 + 0.12 * n.y + key * 0.72 + fill + rim;
+  vec4 tc = uHas ? texture(uTex, vUv) : vec4(1.0);
+  if (uCut && tc.a < 0.5) discard;
   if (uMode == 1) { o = vec4(n * 0.5 + 0.5, 1.0); return; }
   vec3 c;
   if (uMode == 0 && uHas) {
-    c = texture(uTex, vUv).rgb * light;
+    c = tc.rgb * light;
     if (uSrgb) c = pow(c, vec3(1.0 / 2.2));
   } else if (uMode == 3) {
     c = uTint * light;
