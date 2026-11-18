@@ -5,6 +5,7 @@ Visor 3D. Abre un zip con:
 - un modelo FBX binario con texturas PNG/JPG/DDS: una parte por material (sin huesos ni blendshapes).
 - un modelo OBJ (con o sin .mtl): una parte por material o grupo. Si no hay .mtl usa la imagen del zip como textura.
 - un modelo USDZ / USDC binario (Apple, Sketchfab): una parte por malla y material, con su textura.
+- un archivo Blender (.blend, normal o comprimido con gzip, Blender 2.5 a 3.5): una parte por material, con la textura del nodo Image Texture. Ignora huesos, modificadores y shape keys. Si la imagen no esta empaquetada en el .blend, la busca en el zip por nombre (aunque cambien espacios por guiones bajos).
 
 Tambien abre zips dentro de zips (hasta 4 niveles).
 

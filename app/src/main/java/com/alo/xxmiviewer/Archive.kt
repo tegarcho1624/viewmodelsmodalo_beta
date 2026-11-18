@@ -15,6 +15,7 @@ class Archive(file: File, private val tmpDir: File) {
     private val srcByLower = HashMap<String, Src>()      // ruta en minusculas -> origen
     private val pathByLower = HashMap<String, String>()  // ruta en minusculas -> ruta normalizada
     private val byBase = HashMap<String, String>()       // nombre de archivo en minusculas -> ruta normalizada
+    private val mem = HashMap<String, ByteArray>()       // archivos virtuales (p. ej. imagenes empaquetadas dentro de un .blend)
     val paths = ArrayList<String>()
 
     init {
@@ -53,6 +54,7 @@ class Archive(file: File, private val tmpDir: File) {
     }
 
     fun read(path: String): ByteArray {
+        mem[path.lowercase()]?.let { return it }
         val src = srcByLower[path.lowercase()] ?: throw IllegalStateException("No existe $path")
         val entry = src.zip.getEntry(src.raw) ?: throw IllegalStateException("No existe $path")
         return src.zip.getInputStream(entry).use { it.readBytes() }
@@ -72,6 +74,36 @@ class Archive(file: File, private val tmpDir: File) {
         val full = out.joinToString("/")
         pathByLower[full.lowercase()]?.let { return it }
         return byBase[name.replace('\\', '/').substringAfterLast('/').lowercase()]
+    }
+
+    /** Agrega un archivo que no esta en el zip (por ejemplo una imagen empaquetada en un .blend). */
+    fun addVirtual(path: String, bytes: ByteArray) {
+        val l = path.lowercase()
+        mem[l] = bytes
+        if (!pathByLower.containsKey(l)) {
+            pathByLower[l] = path
+            paths.add(path)
+            byBase.putIfAbsent(l.substringAfterLast('/'), path)
+        }
+    }
+
+    private fun norm(s: String, keepExt: Boolean): String {
+        var b = s.replace('\\', '/').substringAfterLast('/')
+        if (!keepExt) b = b.substringBeforeLast('.')
+        val sb = StringBuilder()
+        for (ch in b.lowercase()) if (ch.isLetterOrDigit()) sb.append(ch)
+        return sb.toString()
+    }
+
+    /** Busca una imagen por nombre ignorando mayusculas, espacios, guiones y guiones bajos ("Type 0 Texture.png" = "Type_0_Texture.png"). */
+    fun resolveFuzzy(name: String): String? {
+        if (name.isEmpty()) return null
+        val imgs = images()
+        val n = norm(name, true)
+        imgs.firstOrNull { norm(it, true) == n }?.let { return it }
+        val ne = norm(name, false)
+        if (ne.isEmpty()) return null
+        return imgs.firstOrNull { norm(it, false) == ne }
     }
 
     /** Imagenes del archivo (posibles texturas). */
