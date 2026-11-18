@@ -16,6 +16,9 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
+import android.app.Dialog
+import android.widget.SeekBar
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -58,6 +61,9 @@ class MainActivity : Activity() {
     private val hidden = HashSet<String>()
     private val partRows = ArrayList<Pair<CheckBox, CpuDraw>>()
     private var loadToken = 0
+    private var model: CpuModel? = null
+    private val texCfg = HashMap<Int, TexCfg>()
+    private var texDialog: Dialog? = null
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
@@ -133,6 +139,7 @@ class MainActivity : Activity() {
         camRow.addView(button("Girar 180°") { renderer.yaw += Math.PI.toFloat(); glView.requestRender() },
             LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
         col.addView(camRow.apply { lp(top = 8) })
+        col.addView(button("Texturas…") { showTextureWindow() }.apply { lp(top = 8) })
         col.addView(note.apply { lp(top = 10) })
         setMode(0)
         setVarsVisible(false)
@@ -175,7 +182,7 @@ class MainActivity : Activity() {
 
     override fun onResume() { super.onResume(); glView.onResume() }
     override fun onPause() { super.onPause(); glView.onPause() }
-    override fun onDestroy() { super.onDestroy(); archive?.close() }
+    override fun onDestroy() { super.onDestroy(); texDialog?.dismiss(); archive?.close() }
 
     // ---------------------------------------------------------------- Camara tactil
 
@@ -318,6 +325,10 @@ class MainActivity : Activity() {
         archive = cpu.archive
         if (old != null && old !== cpu.archive) old.close()
 
+        texDialog?.dismiss()
+        model = cpu
+        texCfg.clear()
+        renderer.texCfg = HashMap()
         vars.clear()
         vars.putAll(cpu.ini.defs)
         for ((k, vd) in cpu.ini.vars) if (!vars.containsKey(k)) vars[k] = vd.values[0].toDouble()
@@ -404,6 +415,119 @@ class MainActivity : Activity() {
         renderer.mode = m
         modeButtons.forEachIndexed { i, b -> styleButton(b, i == m, small = true) }
         if (::glView.isInitialized) glView.requestRender()
+    }
+
+
+    // ---------------------------------------------------------------- Ventana de texturas
+
+    private fun applyTexCfg() {
+        renderer.texCfg = HashMap(texCfg)
+        glView.requestRender()
+    }
+
+    private fun shortName(p: String): String = p.substringAfterLast('/')
+
+    /** Ventana flotante (no tapa el modelo ni bloquea el gesto de camara) para cambiar la textura de cada seccion. */
+    private fun showTextureWindow() {
+        val cpu = model
+        val ar = archive
+        if (cpu == null || ar == null) { note.text = "Abre un modelo primero."; return }
+        texDialog?.dismiss()
+        val imgs = ar.images()
+
+        val col = column().apply { setPadding(dp(14), dp(12), dp(14), dp(14)) }
+        val sc = ScrollView(this).apply { addView(col, ViewGroup.LayoutParams(-1, -2)) }
+        val box = column().apply {
+            background = GradientDrawable().apply { setColor(cPanel); cornerRadius = dp(14).toFloat(); setStroke(dp(1), cLine) }
+            val head = LinearLayout(this@MainActivity).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(10), dp(10), 0) }
+            head.addView(text("Texturas", 17f, cFg, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(head)
+            addView(sc, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        val dlg = Dialog(this)
+        run {
+            val h = (box.getChildAt(0) as LinearLayout)
+            h.addView(smallButton("Restablecer todo") { texCfg.clear(); applyTexCfg(); dlg.dismiss(); showTextureWindow() })
+            h.addView(smallButton("Cerrar") { dlg.dismiss() }.apply { lp(left = 6) })
+        }
+
+        // --- misma imagen para todas las secciones
+        if (imgs.isNotEmpty()) {
+            col.addView(text("Usar una misma imagen en todas las partes", 12f, cMuted))
+            val allBtn = smallButton("Elegir imagen…") {
+                val names = imgs.map { shortName(it) }.toTypedArray()
+                AlertDialog.Builder(this).setTitle("Imagen para todas las partes")
+                    .setItems(names) { _, i ->
+                        for (si in cpu.sections.indices) texCfg[si] = (texCfg[si] ?: TexCfg()).let { TexCfg(imgs[i], false, it.bright, it.flipV, it.cut, it.cull) }
+                        applyTexCfg(); dlg.dismiss(); showTextureWindow()
+                    }.show()
+            }
+            col.addView(allBtn.apply { lp(top = 4) })
+        }
+
+        for ((si, s) in cpu.sections.withIndex()) {
+            val cur = texCfg[si] ?: TexCfg()
+            fun set(n: TexCfg) { texCfg[si] = n; applyTexCfg() }
+            col.addView(text(s.name, 14f, cFg, bold = true).apply { lp(top = 16) })
+            val label = when {
+                cur.none -> "Sin textura"
+                cur.path != null -> shortName(cur.path)
+                s.fixedTex != null -> shortName(s.fixedTex) + "  (original)"
+                else -> "Automática (según el modelo)"
+            }
+            val pick = smallButton(label) {
+                val cur = texCfg[si] ?: TexCfg()
+                val opts = ArrayList<String>(); val acts = ArrayList<() -> Unit>()
+                opts.add("Original"); acts.add { set(TexCfg(null, false, cur.bright, cur.flipV, cur.cut, cur.cull)) }
+                opts.add("Sin textura (gris)"); acts.add { set(TexCfg(null, true, cur.bright, cur.flipV, cur.cut, cur.cull)) }
+                for (p in imgs) { opts.add(shortName(p)); acts.add { set(TexCfg(p, false, cur.bright, cur.flipV, cur.cut, cur.cull)) } }
+                AlertDialog.Builder(this).setTitle(s.name)
+                    .setItems(opts.toTypedArray()) { _, i -> acts[i](); dlg.dismiss(); showTextureWindow() }.show()
+            }
+            col.addView(pick.apply { lp(top = 4) })
+
+            val br = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            br.addView(text("Brillo", 12f, cMuted))
+            val sb = SeekBar(this).apply {
+                max = 200; progress = (cur.bright * 100).toInt()
+                progressTintList = ColorStateList.valueOf(cAccent); thumbTintList = ColorStateList.valueOf(cAccent)
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(b: SeekBar?, p: Int, user: Boolean) {
+                        if (!user) return
+                        val c = texCfg[si] ?: TexCfg()
+                        set(TexCfg(c.path, c.none, p / 100f, c.flipV, c.cut, c.cull))
+                    }
+                    override fun onStartTrackingTouch(b: SeekBar?) {}
+                    override fun onStopTrackingTouch(b: SeekBar?) {}
+                })
+            }
+            br.addView(sb, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
+            col.addView(br.apply { lp(top = 4) })
+
+            fun check(t: String, on: Boolean, f: (TexCfg, Boolean) -> TexCfg) = CheckBox(this).apply {
+                text = t; setTextColor(cFg); textSize = 13f; isChecked = on
+                buttonTintList = ColorStateList.valueOf(cAccent)
+                setOnCheckedChangeListener { _, v -> set(f(texCfg[si] ?: TexCfg(), v)) }
+            }
+            col.addView(check("Invertir vertical (si la textura sale de cabeza)", cur.flipV) { c, v -> TexCfg(c.path, c.none, c.bright, v, c.cut, c.cull) })
+            col.addView(check("Recortar transparencias", cur.cut ?: s.alphaCut) { c, v -> TexCfg(c.path, c.none, c.bright, c.flipV, v, c.cull) })
+            col.addView(check("Ocultar caras traseras", cur.cull ?: s.cull) { c, v -> TexCfg(c.path, c.none, c.bright, c.flipV, c.cut, v) })
+        }
+
+        dlg.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dlg.setContentView(box)
+        dlg.setCanceledOnTouchOutside(false)
+        dlg.window?.let { w ->
+            w.setBackgroundDrawable(GradientDrawable().apply { setColor(Color.TRANSPARENT) })
+            w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            w.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH)
+            val m = resources.displayMetrics
+            val landscape = m.widthPixels > m.heightPixels
+            w.setLayout(if (landscape) dp(340) else (m.widthPixels * 0.94f).toInt(), (m.heightPixels * (if (landscape) 0.9f else 0.55f)).toInt())
+            w.setGravity(if (landscape) Gravity.END or Gravity.CENTER_VERTICAL else Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+        }
+        texDialog = dlg
+        dlg.show()
     }
 
     // ---------------------------------------------------------------- Helpers de vistas

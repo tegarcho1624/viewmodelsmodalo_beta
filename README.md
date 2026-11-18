@@ -17,3 +17,9 @@ Tambien abre zips dentro de zips (hasta 4 niveles).
 
 ## Uso
 Abrir zip > elegir el zip del mod. Un dedo gira, dos dedos hacen zoom y mueven.
+
+## Ventana de texturas
+Boton "Texturas…" del panel: ventana flotante (el modelo sigue visible y se puede girar mientras esta abierta).
+Por cada parte del modelo: elegir otra imagen del zip, quitar la textura, brillo, invertir vertical,
+recortar transparencias y ocultar caras traseras. "Restablecer todo" vuelve a los valores originales.
+Los zips anidados se abren hasta 8 niveles.

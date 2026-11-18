@@ -39,7 +39,7 @@ class Archive(file: File, private val tmpDir: File) {
             byBase.putIfAbsent(l.substringAfterLast('/'), p)
             if (l.endsWith(".zip") || l.endsWith(".usdz")) nested.add(p to e.name)
         }
-        if (depth >= 4) return
+        if (depth >= 8) return
         for ((p, raw) in nested) {
             try {
                 val entry = zip.getEntry(raw) ?: continue

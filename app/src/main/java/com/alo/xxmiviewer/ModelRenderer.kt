@@ -14,6 +14,16 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.math.tan
 
+/** Ajustes de textura de una seccion, elegidos por el usuario en la ventana de texturas. */
+class TexCfg(
+    val path: String? = null,       // null: la textura original; otro valor: ruta de una imagen del zip
+    val none: Boolean = false,      // true: sin textura (gris)
+    val bright: Float = 1f,         // 0..2
+    val flipV: Boolean = false,     // invierte el eje vertical de la textura
+    val cut: Boolean? = null,       // null: el del modelo; true/false: recorte de transparencias
+    val cull: Boolean? = null,      // null: el del modelo; true/false: ocultar caras traseras
+)
+
 class ModelRenderer(
     private val runGl: (Runnable) -> Unit,
     private val redraw: () -> Unit,
@@ -24,6 +34,7 @@ class ModelRenderer(
     // Estado compartido con la interfaz (se reemplaza completo, nunca se modifica en sitio)
     @Volatile var vars: Map<String, Double> = emptyMap()
     @Volatile var hidden: Set<String> = emptySet()
+    @Volatile var texCfg: Map<Int, TexCfg> = emptyMap()   // por numero de seccion
     @Volatile var mode: Int = 0   // 0 textura, 1 normales, 2 gris, 3 partes
 
     // Camara orbital
@@ -52,6 +63,8 @@ class ModelRenderer(
     private var uSrgb = 0
     private var uTint = 0
     private var uCut = 0
+    private var uBright = 0
+    private var uFlip = 0
     private var width = 1
     private var height = 1
     private var lastTris = -1
@@ -116,6 +129,8 @@ class ModelRenderer(
         uSrgb = GLES30.glGetUniformLocation(prog, "uSrgb")
         uTint = GLES30.glGetUniformLocation(prog, "uTint")
         uCut = GLES30.glGetUniformLocation(prog, "uCut")
+        uBright = GLES30.glGetUniformLocation(prog, "uBright")
+        uFlip = GLES30.glGetUniformLocation(prog, "uFlip")
         val ext = GLES20.glGetString(GLES20.GL_EXTENSIONS) ?: ""
         aniso = ext.contains("GL_EXT_texture_filter_anisotropic")
         // El contexto pudo perderse (pausa/reanudar): se vuelve a subir el modelo
@@ -151,14 +166,18 @@ class ModelRenderer(
         val hid = hidden
         var di = 0
         var tris = 0
-        for (gs in sections) {
-            val t = texFor(m, gs.section, v)
+        val cfgs = texCfg
+        for ((si, gs) in sections.withIndex()) {
+            val cfg = cfgs[si]
+            val t = if (cfg != null && cfg.none) null else texFor(m, gs.section, v, cfg)
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
             if (t != null) GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t.id)
             GLES30.glUniform1i(uHas, if (t != null) 1 else 0)
             GLES30.glUniform1i(uSrgb, if (t != null && t.srgb) 1 else 0)
-            GLES30.glUniform1i(uCut, if (t != null && gs.section.alphaCut) 1 else 0)
-            if (gs.section.cull) GLES30.glEnable(GLES30.GL_CULL_FACE) else GLES30.glDisable(GLES30.GL_CULL_FACE)
+            GLES30.glUniform1i(uCut, if (t != null && (cfg?.cut ?: gs.section.alphaCut)) 1 else 0)
+            GLES30.glUniform1f(uBright, cfg?.bright ?: 1f)
+            GLES30.glUniform1i(uFlip, if (cfg != null && cfg.flipV) 1 else 0)
+            if (cfg?.cull ?: gs.section.cull) GLES30.glEnable(GLES30.GL_CULL_FACE) else GLES30.glDisable(GLES30.GL_CULL_FACE)
             GLES30.glBindVertexArray(gs.vao)
             for (d in gs.section.draws) {
                 val idx = di++
@@ -224,9 +243,11 @@ class ModelRenderer(
 
     // ---------- Texturas ----------
 
-    private fun texFor(m: CpuModel, sec: CpuSection, v: Map<String, Double>): GlTex? {
+    private fun texFor(m: CpuModel, sec: CpuSection, v: Map<String, Double>, cfg: TexCfg?): GlTex? {
         val path: String
-        if (sec.fixedTex != null) {
+        if (cfg?.path != null) {
+            path = cfg.path
+        } else if (sec.fixedTex != null) {
             path = sec.fixedTex
         } else {
             var r: String? = null
@@ -350,6 +371,8 @@ uniform bool uHas;
 uniform bool uSrgb;
 uniform vec3 uTint;
 uniform bool uCut;
+uniform float uBright;
+uniform bool uFlip;
 void main() {
   vec3 n = normalize(vN);
   if (!gl_FrontFacing) n = -n;
@@ -357,12 +380,12 @@ void main() {
   float fill = max(dot(n, normalize(vec3(-0.7, 0.1, 0.45))), 0.0) * 0.35;
   float rim = pow(1.0 - max(n.z, 0.0), 3.0) * 0.18;
   float light = 0.38 + 0.12 * n.y + key * 0.72 + fill + rim;
-  vec4 tc = uHas ? texture(uTex, vUv) : vec4(1.0);
+  vec4 tc = uHas ? texture(uTex, uFlip ? vec2(vUv.x, 1.0 - vUv.y) : vUv) : vec4(1.0);
   if (uCut && tc.a < 0.5) discard;
   if (uMode == 1) { o = vec4(n * 0.5 + 0.5, 1.0); return; }
   vec3 c;
   if (uMode == 0 && uHas) {
-    c = tc.rgb * light;
+    c = tc.rgb * uBright * light;
     if (uSrgb) c = pow(c, vec3(1.0 / 2.2));
   } else if (uMode == 3) {
     c = uTint * light;
