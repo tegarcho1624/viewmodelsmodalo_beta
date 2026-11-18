@@ -194,7 +194,7 @@ object BlendLoader {
                     CpuSection(
                         label, key, bufs[s].toArray(),
                         listOf(CpuDraw("$si:$label:0", label, bufs[s].n, 0, emptyList())),
-                        emptyList(), tex,
+                        emptyList(), tex, cullOf(bf, mb),
                     ),
                 )
             }
@@ -226,6 +226,13 @@ object BlendLoader {
             }
         }
         return null
+    }
+
+    /** Blender 2.7x: la casilla "Backface Culling" del material (game.flag & 16). Oculta los cascarones de contorno (casco invertido). */
+    private fun cullOf(bf: BlendFile, mb: BlendFile.Block?): Boolean {
+        if (mb == null || bf.version >= 280) return false
+        if (!bf.has("Material", "game") || !bf.has("GameSettings", "flag")) return false
+        return (bf.i32(mb.pos + bf.fo("Material", "game") + bf.fo("GameSettings", "flag")) and 16) != 0
     }
 
     private fun isNonColor(name: String): Boolean {

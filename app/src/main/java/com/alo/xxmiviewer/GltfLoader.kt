@@ -632,7 +632,7 @@ object GltfLoader {
                     CpuSection(
                         label, key, tri,
                         listOf(CpuDraw("$si:$label:0", label, tri.size, 0, emptyList())),
-                        emptyList(), tex, alphaCut,
+                        emptyList(), tex, alphaCut = alphaCut,
                     ),
                 )
             }

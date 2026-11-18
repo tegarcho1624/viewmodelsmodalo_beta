@@ -15,6 +15,7 @@ class CpuSection(
     val draws: List<CpuDraw>,
     val diff: List<DiffAssign>,
     val fixedTex: String? = null,   // ruta de textura fija dentro del zip (FBX); null = la decide el .ini
+    val cull: Boolean = false,      // true: no se dibujan las caras traseras (cascarones de contorno de Blender)
     val alphaCut: Boolean = false,  // true: se descartan los pixeles transparentes de la textura (glTF MASK/BLEND)
 )
 

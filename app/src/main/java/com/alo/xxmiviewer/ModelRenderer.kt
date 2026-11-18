@@ -158,6 +158,7 @@ class ModelRenderer(
             GLES30.glUniform1i(uHas, if (t != null) 1 else 0)
             GLES30.glUniform1i(uSrgb, if (t != null && t.srgb) 1 else 0)
             GLES30.glUniform1i(uCut, if (t != null && gs.section.alphaCut) 1 else 0)
+            if (gs.section.cull) GLES30.glEnable(GLES30.GL_CULL_FACE) else GLES30.glDisable(GLES30.GL_CULL_FACE)
             GLES30.glBindVertexArray(gs.vao)
             for (d in gs.section.draws) {
                 val idx = di++
